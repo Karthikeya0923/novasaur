@@ -19,7 +19,7 @@ public class NovaSaurBridge {
     // Call this once on app start to load the model
     public void initialize(Context context) {
         try {
-            String modelPath = context.getFilesDir() + "/gemma-2b-it-cpu-int4.bin";
+            String modelPath = "/data/local/tmp/gemma-2b-it-cpu-int4.bin";
             gemma = new GemmaInference(context, modelPath);
             isReady = true;
         } catch (Exception e) {
