@@ -77,15 +77,7 @@ Building something with NovaSaur? Open an issue and let me know.
 
 ## Roadmap
 
-- [x] On-device inference pipeline (MediaPipe + Gemma 2B)
-- [x] JNI bridge to .NET MAUI (C#)
-- [x] First app integration
-- [ ] Verified end-to-end on physical hardware
-- [ ] Packaged as a reusable drop-in library (prebuilt AAR / NuGet)
-- [ ] Generation tuning hooks (tone, length, temperature)
-- [ ] Model distribution solution for store-shipped apps
-- [ ] Support for additional on-device models
-
+> 📋 **[View the official project roadmap →](https://github.com/users/Karthikeya0923/projects/5)**
 ## License
 
 GPL-3.0. See [LICENSE](LICENSE).
