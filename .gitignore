@@ -36,3 +36,6 @@ google-services.json
 # Model files (too large for GitHub, downloaded at runtime)
 *.bin
 *.task
+local.properties
+build/
+.gradle/
