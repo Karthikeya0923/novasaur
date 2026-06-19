@@ -6,6 +6,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -17,131 +18,309 @@ import java.util.concurrent.Executors;
 
 public class TestActivity extends Activity {
 
-private TextView outputText;
-private TextView statusText;
-private EditText questionInput;
-private Button askButton;
+    private TextView statusText;
+    private EditText chatInput;
+    private Button sendButton;
+    private LinearLayout chatLayout;
+    private ScrollView mainScroll;
 
-private ExecutorService executor = Executors.newSingleThreadExecutor();
-private Handler mainHandler = new Handler(Looper.getMainLooper());
+    private final ExecutorService executor =
+            Executors.newSingleThreadExecutor();
 
-@Override
-protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
+    private final Handler mainHandler =
+            new Handler(Looper.getMainLooper());
 
-    LinearLayout root = new LinearLayout(this);
-    root.setOrientation(LinearLayout.VERTICAL);
-    root.setPadding(24,24,24,24);
 
-    statusText = new TextView(this);
-    statusText.setText("Loading NovaSaur...");
-    root.addView(statusText);
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-    questionInput = new EditText(this);
-    questionInput.setHint("Ask NovaSaur about dinosaurs or space...");
-    questionInput.setInputType(InputType.TYPE_CLASS_TEXT);
-    root.addView(questionInput);
+        getWindow().setSoftInputMode(
+                WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        );
 
-    askButton = new Button(this);
-    askButton.setText("Ask");
-    askButton.setEnabled(false);
-    root.addView(askButton);
 
-    ScrollView scrollView = new ScrollView(this);
+        mainScroll = new ScrollView(this);
 
-    outputText = new TextView(this);
-    outputText.setTextSize(16);
-    outputText.setPadding(16,16,16,16);
 
-    scrollView.addView(outputText);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(24,24,24,24);
 
-    root.addView(
-        scrollView,
-        new LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            0,
-            1f
-        )
-    );
 
-    setContentView(root);
+        mainScroll.addView(root);
 
-    executor.execute(() -> {
-        try {
-            NovaSaurModule.init(this);
 
-            mainHandler.post(() -> {
-                statusText.setText("NovaSaur Ready");
-                askButton.setEnabled(true);
-                appendText("NovaSaur loaded successfully.\n\n");
-            });
+        statusText = new TextView(this);
+        statusText.setText("Loading NovaSaur...");
+        statusText.setTextSize(18);
 
-        } catch (Exception e) {
+        root.addView(statusText);
 
-            mainHandler.post(() -> {
-                statusText.setText("Failed to load");
-                appendText("ERROR: " + e.getMessage() + "\n");
-            });
 
-        }
-    });
 
-    askButton.setOnClickListener(v -> askQuestion());
-}
+        chatLayout = new LinearLayout(this);
+        chatLayout.setOrientation(LinearLayout.VERTICAL);
+        chatLayout.setPadding(10,20,10,20);
 
-private void askQuestion() {
 
-    String question = questionInput.getText().toString().trim();
+        root.addView(
+                chatLayout,
+                new LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+        );
 
-    if(question.isEmpty()) {
-        return;
+
+
+        LinearLayout bottomBar = new LinearLayout(this);
+        bottomBar.setOrientation(LinearLayout.HORIZONTAL);
+
+
+        chatInput = new EditText(this);
+        chatInput.setHint("Ask NovaSaur...");
+        chatInput.setSingleLine(true);
+        chatInput.setInputType(
+                InputType.TYPE_CLASS_TEXT
+        );
+
+
+        bottomBar.addView(
+                chatInput,
+                new LinearLayout.LayoutParams(
+                        0,
+                        ViewGroup.LayoutParams.WRAP_CONTENT,
+                        1
+                )
+        );
+
+
+        sendButton = new Button(this);
+        sendButton.setText("Send");
+        sendButton.setEnabled(false);
+
+
+        bottomBar.addView(sendButton);
+
+
+        root.addView(bottomBar);
+
+
+
+        setContentView(mainScroll);
+
+
+
+        executor.execute(() -> {
+
+            try {
+
+                NovaSaurModule.init(
+                        getApplicationContext()
+                );
+
+
+                mainHandler.post(() -> {
+
+                    statusText.setText(
+                            "NovaSaur Ready"
+                    );
+
+                    sendButton.setEnabled(true);
+
+
+                    addMessage(
+                            "NOVASAUR: Hi! I'm NovaSaur. Ask me anything about dinosaurs or space!"
+                    );
+
+                    scrollDown();
+
+                });
+
+
+            } catch(Exception e) {
+
+
+                mainHandler.post(() -> {
+
+                    statusText.setText(
+                            "Failed to load"
+                    );
+
+
+                    addMessage(
+                            "MODEL ERROR:\n" + e.toString()
+                    );
+
+                    scrollDown();
+
+                });
+
+            }
+
+        });
+
+
+
+        sendButton.setOnClickListener(
+                v -> askQuestion()
+        );
+
+
+        chatInput.setOnEditorActionListener(
+                (v, actionId, event) -> {
+
+                    askQuestion();
+
+                    return true;
+                }
+        );
+
     }
 
-    askButton.setEnabled(false);
-    statusText.setText("Thinking...");
 
-    appendText("YOU: " + question + "\n\n");
 
-    executor.execute(() -> {
+    private void askQuestion() {
 
-        try {
+        String question =
+                chatInput.getText()
+                        .toString()
+                        .trim();
 
-            String response =
-                NovaSaurModule.ask(question);
 
-            mainHandler.post(() -> {
-
-                appendText(
-                    "NOVASAUR: "
-                    + response
-                    + "\n\n-----------------\n\n"
-                );
-
-                statusText.setText("Ready");
-                askButton.setEnabled(true);
-            });
-
-        } catch(Exception e) {
-
-            mainHandler.post(() -> {
-
-                appendText(
-                    "ERROR: "
-                    + e.getMessage()
-                    + "\n\n"
-                );
-
-                statusText.setText("Ready");
-                askButton.setEnabled(true);
-            });
-
+        if(question.isEmpty()) {
+            return;
         }
 
-    });
-}
 
-private void appendText(String text) {
-    outputText.append(text);
-}
+        chatInput.setText("");
+
+
+        addMessage(
+                "YOU: " + question
+        );
+
+
+        sendButton.setEnabled(false);
+
+        statusText.setText(
+                "Thinking..."
+        );
+
+
+        scrollDown();
+
+
+
+        executor.execute(() -> {
+
+
+            try {
+
+
+                String response =
+                        NovaSaurModule.ask(question);
+
+
+
+                mainHandler.post(() -> {
+
+
+                    addMessage(
+                            "NOVASAUR: " + response
+                    );
+
+
+                    statusText.setText(
+                            "Ready"
+                    );
+
+
+                    sendButton.setEnabled(true);
+
+
+                    scrollDown();
+
+                });
+
+
+
+            } catch(Exception e) {
+
+
+                mainHandler.post(() -> {
+
+
+                    addMessage(
+                            "ERROR:\n" + e.toString()
+                    );
+
+
+                    statusText.setText(
+                            "Ready"
+                    );
+
+
+                    sendButton.setEnabled(true);
+
+
+                    scrollDown();
+
+                });
+
+            }
+
+
+        });
+
+
+    }
+
+
+
+    private void addMessage(String text) {
+
+        TextView message =
+                new TextView(this);
+
+        message.setText(text);
+        message.setTextSize(18);
+        message.setPadding(
+                8,
+                12,
+                8,
+                12
+        );
+
+
+        chatLayout.addView(message);
+
+    }
+
+
+
+    private void scrollDown() {
+
+        mainScroll.post(() -> {
+
+            mainScroll.fullScroll(
+                    ScrollView.FOCUS_DOWN
+            );
+
+        });
+
+    }
+
+
+
+    @Override
+    protected void onDestroy() {
+
+        super.onDestroy();
+
+        executor.shutdown();
+
+    }
 
 }

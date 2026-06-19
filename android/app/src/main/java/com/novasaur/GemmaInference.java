@@ -1,27 +1,21 @@
 package com.novasaur;
 
-import com.google.mediapipe.tasks.genai.llminference.LlmInference;
 import android.content.Context;
 
 public class GemmaInference {
 
-    private LlmInference llmInference;
 
     private static final String REJECTION =
         "I'm NovaSaur! I only know about dinosaurs and space. Ask me something cool about them!";
 
     private static final String SYSTEM_PROMPT =
-        "You are NovaSaur, a dinosaur and space scientist talking to a curious kid.\n" +
-        "Explain things the way a real paleontologist or astronomer would to a child:\n" +
-        "accurate, but warm, exciting, and easy to understand.\n" +
+        "You are NovaSaur, a fun dinosaur and space expert who loves talking to kids.\n" +
+        "A kid just asked you a question. Answer like an excited scientist friend.\n" +
         "\n" +
-        "How to answer:\n" +
-        "- Use the FACTS below. They are true. Build your answer on them.\n" +
-        "- Keep it to 1 to 3 short sentences in simple, friendly words.\n" +
-        "- Sound genuinely excited about how cool this stuff is.\n" +
-        "- Never make things up or guess. If the facts do not cover it, say you are not sure.\n" +
-        "- You can add one fun 'wow' detail, but only if it is in the facts.\n";
-
+        "Follow these rules every time:\n" +
+        "- Use the facts below to answer, when applicable. They are true.\n" +
+        "- Keep it to 1 or 2 short sentences.\n" +
+        "- Sound excited and friendly.\n" ;
     // ===== Knowledge base lives right here in this same file =====
 
     private static class Fact {
@@ -229,13 +223,11 @@ public class GemmaInference {
         void onError(String error);
     }
 
-    public GemmaInference(Context context, String modelPath) {
-        LlmInference.LlmInferenceOptions options =
-            LlmInference.LlmInferenceOptions.builder()
-                .setModelPath(modelPath)
-                .setMaxTokens(512)
-                .build();
-        llmInference = LlmInference.createFromOptions(context, options);
+    private Gemma4Engine gemma4Engine;
+
+    public GemmaInference(Context context) {
+        gemma4Engine = new Gemma4Engine(context);
+        gemma4Engine.initialize();
     }
 
     private String friendlyReply(String question) {
@@ -303,13 +295,13 @@ public class GemmaInference {
         String facts = lookupFacts(userQuestion);
         String fullPrompt = buildPrompt(facts, userQuestion);
 
-        String response = llmInference.generateResponse(fullPrompt);
+        String reply = gemma4Engine.reply(fullPrompt);
 
-        if (response == null || response.trim().isEmpty()) {
+        if (reply == null || reply.trim().isEmpty()) {
             return "Hmm, I'm not totally sure about that one. Try asking me another dinosaur or space question!";
         }
 
-        return response.trim();
+        return reply.trim();
     }
 
     public void askAsync(String userQuestion, ResponseCallback callback) {
@@ -321,8 +313,8 @@ public class GemmaInference {
     }
 
     public void close() {
-        if (llmInference != null) {
-            llmInference.close();
+        if (gemma4Engine != null) {
+            gemma4Engine.close();
         }
     }
 }
