@@ -234,7 +234,6 @@ public class GemmaInference {
             LlmInference.LlmInferenceOptions.builder()
                 .setModelPath(modelPath)
                 .setMaxTokens(512)
-                .setResultListener((partialResult, done) -> {})
                 .build();
         llmInference = LlmInference.createFromOptions(context, options);
     }

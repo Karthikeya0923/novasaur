@@ -22,8 +22,10 @@ public class NovaSaurBridge {
             String modelPath = "/data/local/tmp/gemma-2b-it-cpu-int4.bin";
             gemma = new GemmaInference(context, modelPath);
             isReady = true;
+            android.util.Log.i("NovaSaur", "Model loaded: " + modelPath);
         } catch (Exception e) {
             isReady = false;
+            android.util.Log.e("NovaSaur", "Model failed to load: " + e.getMessage(), e);
         }
     }
 
