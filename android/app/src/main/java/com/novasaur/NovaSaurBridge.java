@@ -1,47 +1,90 @@
 package com.novasaur;
 
 import android.content.Context;
+import android.util.Log;
 
 public class NovaSaurBridge {
 
     private static NovaSaurBridge instance;
+
     private GemmaInference gemma;
     private boolean isReady = false;
 
-    // Singleton so the model only loads once
+
     public static NovaSaurBridge getInstance() {
+
         if (instance == null) {
             instance = new NovaSaurBridge();
         }
+
         return instance;
     }
 
-    // Call this once on app start to load the model
+
+
     public void initialize(Context context) {
+
         try {
-            String modelPath = "/data/local/tmp/gemma-2b-it-cpu-int4.bin";
-            gemma = new GemmaInference(context, modelPath);
+
+            Log.i("NovaSaur", "Starting initialization");
+
+            gemma = new GemmaInference(context);
+
             isReady = true;
-            android.util.Log.i("NovaSaur", "Model loaded: " + modelPath);
+
+            Log.i("NovaSaur", "Initialization successful");
+
+
         } catch (Exception e) {
+
             isReady = false;
-            android.util.Log.e("NovaSaur", "Model failed to load: " + e.getMessage(), e);
+
+            Log.e(
+                    "NovaSaur",
+                    "Initialization failed",
+                    e
+            );
+
+            throw e;
         }
     }
 
-    // Returns the answer or an error message
+
+
     public String ask(String question) {
+
         if (!isReady) {
-            return "NovaSaur is still loading, please try again in a moment.";
+
+            return "ERROR: NovaSaur model failed to load. Check Logcat.";
+
         }
+
+
         try {
+
             return gemma.ask(question);
-        } catch (Exception e) {
-            return "NovaSaur couldn't answer that. Try again!";
+
+
+        } catch(Exception e) {
+
+            Log.e(
+                    "NovaSaur",
+                    "Inference error",
+                    e
+            );
+
+            return "ERROR: " + e.getMessage();
+
         }
+
     }
+
+
 
     public boolean isReady() {
+
         return isReady;
+
     }
+
 }
