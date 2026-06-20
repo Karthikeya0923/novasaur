@@ -13,9 +13,7 @@ class Gemma4Engine(private val context: Context) {
     private var conversation: Conversation? = null
 
     private fun getModelPath(): String {
-
-        return "/data/local/tmp/llm/gemma-4-E2B-it.litertlm"
-
+        return File(context.filesDir, "NovaSaur.litertlm").absolutePath
     }
 
 
