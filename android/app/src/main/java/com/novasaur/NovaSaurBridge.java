@@ -3,7 +3,7 @@ package com.novasaur;
 import android.content.Context;
 import android.util.Log;
 
-public class NovaSaurBridge {
+class NovaSaurBridge {
 
     private static NovaSaurBridge instance;
 
