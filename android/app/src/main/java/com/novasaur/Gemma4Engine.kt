@@ -58,12 +58,14 @@ class Gemma4Engine(private val context: Context) {
         engine = newEngine
     }
 
-    // Lower temperature = the model sticks closer to the facts in the
-    // prompt, which is what a kids' encyclopedia answer needs.
-    // If your LiteRT-LM version names these differently, you can delete
-    // this config and call createConversation() with no arguments.
+    // Lower temperature = the model sticks closer to the facts the DinoSpace
+    // app injects in its prompt, which is exactly what a kids' encyclopedia
+    // answer needs. 0.5 keeps answers factual and steady without sounding
+    // robotic. topK/topP trim off the unlikely, off-topic tokens.
+    // If your LiteRT-LM version names these differently, you can delete this
+    // config and call createConversation() with no arguments.
     private fun conversationConfig() = ConversationConfig(
-        samplerConfig = SamplerConfig(topK = 40, topP = 0.9, temperature = 0.6)
+        samplerConfig = SamplerConfig(topK = 40, topP = 0.9, temperature = 0.5)
     )
 
     /** Blocking: returns the full answer for one prompt. */
