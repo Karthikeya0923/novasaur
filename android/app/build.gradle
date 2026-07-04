@@ -26,5 +26,7 @@ kotlinOptions {
 
 dependencies {
     implementation 'androidx.core:core-ktx:1.15.0'
-    implementation("com.google.ai.edge.litertlm:litertlm-android:latest.release")
+    // Pinned to the exact version the DinoSpace binding packages
+    // (AndroidMavenLibrary 0.13.1) so compile-time and runtime APIs match.
+    implementation("com.google.ai.edge.litertlm:litertlm-android:0.13.1")
 }
