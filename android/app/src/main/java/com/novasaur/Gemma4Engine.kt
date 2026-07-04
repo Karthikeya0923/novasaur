@@ -49,12 +49,12 @@ class Gemma4Engine(private val context: Context) {
             modelPath = getModelPath(),
             backend = Backend.CPU(),
             cacheDir = context.cacheDir.absolutePath,
-            // Prompt + answer budget. DinoSpace prompts are small (a couple
-            // hundred tokens) and answers are 2-3 sentences, so a tight budget
-            // keeps every question fast AND keeps the per-conversation KV cache
-            // small -- the large 2048 cache was exhausting memory after a few
-            // questions on real devices and stalling the engine.
-            maxNumTokens = 768
+            // Prompt + answer budget. Kept moderate: small enough to hold down
+            // the per-conversation KV-cache memory (the 2048 default was
+            // exhausting memory and stalling the engine after a few questions),
+            // but large enough that the model still initialises and answers
+            // reliably (768 was too tight and broke the first inference).
+            maxNumTokens = 1536
         )
 
         val newEngine = Engine(config)
