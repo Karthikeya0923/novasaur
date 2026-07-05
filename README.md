@@ -75,9 +75,6 @@ It is not yet packaged as a published, drop-in library; for now you build the AA
 
 Building something with NovaSaur? Open an issue and let me know.
 
-## Roadmap
-
-> 📋 **[View the official project roadmap →](https://github.com/users/Karthikeya0923/projects/5)**
 ## License
 
 GPL-3.0. See [LICENSE](LICENSE).
