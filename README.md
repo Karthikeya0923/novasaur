@@ -54,7 +54,13 @@ Bind the AAR in your MAUI project, then:
 - `isReady()` to check before asking
 - `ask(question)` for a full answer, or `askStream(question, callback)` for token-by-token streaming
 
-That's the whole public surface.
+That's the whole public surface. A production-grade C# wrapper (single-flight init, timeouts, serialized inference) ships in [`samples/dotnet-maui`](samples/dotnet-maui).
+
+## Docs
+
+- [ARCHITECTURE.md](docs/ARCHITECTURE.md) — the full stack, lifecycle, threading, and the reliability rules learned from real-device failures
+- [PROMPTING.md](docs/PROMPTING.md) — how to prompt a small quantized model (and when not to call it at all)
+- [MODEL_DELIVERY.md](docs/MODEL_DELIVERY.md) — shipping a 3 GB model through Google Play: asset-pack chunking + resumable fallback
 
 ## Shipping a 3 GB model
 
