@@ -20,6 +20,13 @@ public class NovaSaurModule {
         NovaSaurBridge.getInstance().askStream(question, callback);
     }
 
+    // Called from MAUI C# after each model answer: reloads the engine so the
+    // next question starts against a fresh token budget. Blocking - run off
+    // the UI thread, and never while an inference is in flight.
+    public static void reset() {
+        NovaSaurBridge.getInstance().reset();
+    }
+
     // Called from MAUI C# to check if the model is loaded and ready.
     public static boolean isReady() {
         return NovaSaurBridge.getInstance().isReady();

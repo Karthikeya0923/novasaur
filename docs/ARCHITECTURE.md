@@ -8,7 +8,7 @@ A deep dive into how a 3 GB language model runs reliably inside a consumer Andro
 .NET MAUI app (C#)
    │   binding project (novasaur.aar → C# classes)
    ▼
-NovaSaurModule.java        public API: init / ask / askStream / isReady
+NovaSaurModule.java        public API: init / ask / askStream / reset / isReady
    ▼
 NovaSaurBridge.java        singleton; owns the engine's lifecycle
    ▼
@@ -24,6 +24,7 @@ The public surface is deliberately tiny — four static methods. Everything hard
 1. **`init(context)`** — called once, off the UI thread. Resolves the model file (`NovaSaur.litertlm` in app files), builds the LiteRT-LM engine, holds it in the singleton. Takes seconds to tens of seconds depending on the device; callers must treat it as slow.
 2. **`isReady()`** — cheap check, safe from any thread.
 3. **`ask(question)`** — blocking, one full answer. **`askStream(question, callback)`** — token-by-token.
+4. **`reset()`** — full engine teardown + reload. The integration calls this in the background after every answer (and after any timeout), so each question starts against a clean engine. Blocking and slow; never run it while an inference is in flight.
 
 ## The rules that keep it alive on real phones
 
@@ -35,11 +36,13 @@ The engine supports exactly one running inference. Starting a second one while t
 ### Single-flight initialization
 `Init` is not re-entrant either. If a background warm-up and an on-demand load run `Init` concurrently, the engine can lock up — which surfaces in an app as an infinite "thinking…" spinner. The integration keeps one shared init `Task`; every caller awaits the same one.
 
-### Stateless conversations
-A fresh LiteRT-LM `Conversation` is created per question and closed immediately after. Reusing a conversation appends every past prompt into the context window: answers get slower with each turn and eventually the context overflows. Chat history is the *prompt builder's* job — the app includes the last two Q/A pairs as text inside the prompt itself.
+### Stateless conversations — and a fresh engine per answer
+A fresh LiteRT-LM `Conversation` is created per question and closed immediately after. Reusing a conversation appends every past prompt into the context window: answers get slower with each turn and eventually the context overflows.
+
+Closing conversations turned out not to be enough. Every conversation draws from **one shared token budget** (`maxNumTokens`) held by the engine, so even with perfectly stateless conversations the engine went quiet after roughly three answers — the "NovaSaur only answers 3 questions" bug. The fix is `reset()`: after each answer the integration reloads the engine in the background, restarting the budget from zero. Question 50 behaves exactly like question 1. The reload also doubles as automatic recovery — a timed-out or wedged inference is followed by a reset, so the engine heals itself without an app restart.
 
 ### The prompt is sacred
-No system prompt, no rewriting, no templating on the native side. The complete prompt — instructions, retrieved facts, history, question — is built in C# and reaches the model byte-for-byte. This keeps prompt engineering iterable without touching Kotlin or rebuilding the AAR.
+No system prompt, no rewriting, no templating on the native side. The complete prompt is built in C# and reaches the model byte-for-byte. This keeps prompt engineering iterable without touching Kotlin or rebuilding the AAR. (DinoSpace's production prompt is deliberately bare — one instruction line plus the question, no injected facts or history; see [PROMPTING.md](PROMPTING.md).)
 
 ### Timeouts at every layer
 - **Answer cap (~30 s):** the UI shows a friendly timeout; the abandoned inference finishes in the background under the lock.
@@ -61,4 +64,4 @@ The model needs several GB of RAM to load. On low-memory devices `init` can fail
 
 ## Sampling configuration
 
-The shipped engine pins a small context budget (1536 tokens) and moderate temperature (0.5). Small context keeps prompt processing fast on phone CPUs — the single biggest lever on time-to-first-token — and the app's prompts are engineered to fit it (see [PROMPTING.md](PROMPTING.md)).
+The shipped engine pins a small context budget (1536 tokens) and moderate temperature (0.5). Small context keeps prompt processing fast on phone CPUs — the single biggest lever on time-to-first-token — and since the engine reloads after every answer, the budget only ever has to fit one prompt and one reply.

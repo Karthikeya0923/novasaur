@@ -22,7 +22,7 @@ Your .NET MAUI app  (C#)
         │
         │  JNI bridge
         ▼
-NovaSaurModule.java     — public entry point (init / ask / askStream / isReady)
+NovaSaurModule.java     — public entry point (init / ask / askStream / reset / isReady)
         │
         ▼
 NovaSaurBridge.java     — singleton, manages the model lifecycle
@@ -31,10 +31,11 @@ NovaSaurBridge.java     — singleton, manages the model lifecycle
 Gemma4Engine.kt         — wraps LiteRT-LM; loads the model and runs inference
 ```
 
-Two design rules keep the engine reliable on real phones:
+Three design rules keep the engine reliable on real phones:
 
-- **Stateless conversations.** A fresh conversation is created per question and closed right after. Reusing one fills the context window with every past prompt, which slows answers down and eventually breaks them. Chat history belongs in the prompt, built by the caller.
-- **The prompt is sacred.** No system prompt or rewriting happens on the native side — whatever the C# layer builds (rules, retrieved facts, history) reaches the model untouched.
+- **Every question is independent.** A fresh conversation is created per question and closed right after — and after each answer the engine itself reloads via `reset()`. LiteRT-LM draws all conversations from one shared token budget, so a long-lived engine simply stops answering after a handful of questions; the per-answer reload means question 50 behaves exactly like question 1.
+- **The prompt is sacred.** No system prompt or rewriting happens on the native side — whatever the C# layer builds reaches the model untouched.
+- **Self-healing.** A reset also follows any timeout or failure, so a wedged inference recovers on its own instead of requiring an app restart.
 
 ## Integration
 
@@ -53,6 +54,7 @@ Bind the AAR in your MAUI project, then:
 - `init(context)` once, off the UI thread, to load the model
 - `isReady()` to check before asking
 - `ask(question)` for a full answer, or `askStream(question, callback)` for token-by-token streaming
+- `reset()` after each answer (in the background), so the next question starts against a clean engine
 
 That's the whole public surface. A production-grade C# wrapper (single-flight init, timeouts, serialized inference) ships in [`samples/dotnet-maui`](samples/dotnet-maui).
 
@@ -77,7 +79,7 @@ Large-model delivery is solved in production the way [DinoSpace](https://github.
 
 ## Built with NovaSaur
 
-[**DinoSpace**](https://github.com/Karthikeya0923/dinospace) — an offline dinosaur and space encyclopedia — runs NovaSaur in production as its "Ask NovaSaur" feature, answering free-form questions with retrieval-grounded prompts, entirely without an internet connection.
+[**DinoSpace**](https://github.com/Karthikeya0923/dinospace) — an offline dinosaur and space encyclopedia — runs NovaSaur in production as its "Ask NovaSaur" feature, answering free-form questions entirely without an internet connection — with an instant local answer layer in front, so the model only handles the genuinely open-ended ones.
 
 Building something with NovaSaur? Open an issue and let me know.
 

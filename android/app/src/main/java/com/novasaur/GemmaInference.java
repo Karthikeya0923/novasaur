@@ -50,6 +50,12 @@ class GemmaInference {
         });
     }
 
+    // Reload the model so the next question starts completely fresh.
+    // Blocking; never call while an inference is running.
+    public void reset() {
+        gemma4Engine.reset();
+    }
+
     public void close() {
         if (gemma4Engine != null) {
             gemma4Engine.close();

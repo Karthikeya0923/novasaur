@@ -13,18 +13,24 @@ import java.io.File
 /**
  * Thin wrapper around LiteRT-LM for the NovaSaur model.
  *
- * Design notes (these match the AAR currently shipped inside DinoSpace -
- * keep them if you rebuild, or the app will regress):
+ * Design notes (these match the AAR shipped inside DinoSpace - keep them
+ * if you rebuild, or the app will regress):
  *
- *  - A FRESH Conversation is created for every question and closed right
- *    after. Reusing one Conversation makes the context fill up with every
- *    past prompt, which slows answers down and eventually breaks them.
- *    The DinoSpace app injects any needed chat history into the prompt
- *    itself, so the engine must stay stateless.
+ *  - Every question is INDEPENDENT. A fresh Conversation is created per
+ *    question, and after the answer is delivered the whole engine is torn
+ *    down and reloaded (see [reset]). LiteRT-LM draws every conversation
+ *    from one shared token budget (maxNumTokens), so without the reload
+ *    the budget runs dry after roughly three answers and the engine
+ *    simply stops responding. A reload starts the budget from zero every
+ *    time: question 50 behaves exactly like question 1.
  *
  *  - NO system prompt or prompt rewriting happens here. The C# side builds
- *    the complete prompt (rules, retrieved facts, history) and it must
- *    reach the model untouched.
+ *    the complete prompt and it must reach the model untouched.
+ *
+ *  - One inference at a time. The caller (DinoSpace serialises calls with
+ *    a semaphore) must never overlap two inferences or an inference with
+ *    a reset; [reset] and [initialize] are synchronized here as a second
+ *    line of defence.
  */
 class Gemma4Engine(private val context: Context) {
 
@@ -35,13 +41,20 @@ class Gemma4Engine(private val context: Context) {
         fun onError(error: String)
     }
 
+    @Volatile
     private var engine: Engine? = null
+
+    /** How many answers the current engine instance has produced. */
+    @Volatile
+    var answersSinceLoad: Int = 0
+        private set
 
     private fun getModelPath(): String {
         // DinoSpace places the assembled model at this exact path.
         return File(context.filesDir, "NovaSaur.litertlm").absolutePath
     }
 
+    @Synchronized
     fun initialize() {
         if (engine != null) return
 
@@ -49,24 +62,37 @@ class Gemma4Engine(private val context: Context) {
             modelPath = getModelPath(),
             backend = Backend.CPU(),
             cacheDir = context.cacheDir.absolutePath,
-            // Prompt + answer budget. Kept moderate: small enough to hold down
-            // the per-conversation KV-cache memory (the 2048 default was
-            // exhausting memory and stalling the engine after a few questions),
-            // but large enough that the model still initialises and answers
-            // reliably (768 was too tight and broke the first inference).
+            // Prompt + answer budget for ONE question. The engine reloads
+            // after every answer, so this only has to fit a single prompt
+            // and reply - big enough for a long creative answer, small
+            // enough to keep the KV cache light on low-RAM phones.
             maxNumTokens = 1536
         )
 
         val newEngine = Engine(config)
         newEngine.initialize()
         engine = newEngine
+        answersSinceLoad = 0
     }
 
-    // Lower temperature = the model sticks closer to the facts the DinoSpace
-    // app injects in its prompt, which is exactly what a kids' encyclopedia
-    // answer needs. 0.5 keeps answers factual and steady without sounding
-    // robotic. topK/topP trim off the unlikely, off-topic tokens.
-    // If your LiteRT-LM version names these differently, you can delete this
+    /**
+     * Full teardown + reload. Called after each answer so the next question
+     * starts against a clean engine with an untouched token budget. Blocking
+     * (the model reload takes a while) - run it off the UI thread, and never
+     * concurrently with an inference.
+     */
+    @Synchronized
+    fun reset() {
+        try { engine?.close() } catch (_: Exception) {}
+        engine = null
+        initialize()
+    }
+
+    fun isLoaded(): Boolean = engine != null
+
+    // Lower temperature = steadier, more factual answers, which is what a
+    // kids' encyclopedia needs. topK/topP trim off the unlikely, off-topic
+    // tokens. If your LiteRT-LM version names these differently, delete this
     // config and call createConversation() with no arguments.
     private fun conversationConfig() = ConversationConfig(
         samplerConfig = SamplerConfig(topK = 40, topP = 0.9, temperature = 0.5)
@@ -77,7 +103,9 @@ class Gemma4Engine(private val context: Context) {
         val e = engine ?: error("Engine not initialized")
         val conversation = e.createConversation(conversationConfig())
         try {
-            return conversation.sendMessage(prompt).toString()
+            val answer = conversation.sendMessage(prompt).toString()
+            answersSinceLoad++
+            return answer
         } finally {
             try { conversation.close() } catch (_: Exception) {}
         }
@@ -94,6 +122,7 @@ class Gemma4Engine(private val context: Context) {
             }
 
             override fun onDone() {
+                answersSinceLoad++
                 try { conversation.close() } catch (_: Exception) {}
                 listener.onDone()
             }
@@ -107,8 +136,9 @@ class Gemma4Engine(private val context: Context) {
         conversation.sendMessageAsync(prompt, callback)
     }
 
+    @Synchronized
     fun close() {
-        engine?.close()
+        try { engine?.close() } catch (_: Exception) {}
         engine = null
     }
 }

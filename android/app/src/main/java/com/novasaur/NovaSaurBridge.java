@@ -59,6 +59,20 @@ class NovaSaurBridge {
         }
     }
 
+    // Reload the model between questions so every answer starts from a
+    // clean engine. If the reload fails the bridge flags itself not-ready
+    // instead of leaving a half-dead engine behind.
+    public void reset() {
+        if (gemma == null) return;
+        try {
+            Log.i("NovaSaur", "Resetting engine");
+            gemma.reset();
+        } catch (Exception e) {
+            isReady = false;
+            Log.e("NovaSaur", "Reset failed", e);
+        }
+    }
+
     public boolean isReady() {
         return isReady;
     }

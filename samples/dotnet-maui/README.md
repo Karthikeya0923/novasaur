@@ -9,6 +9,9 @@ reference. It layers the reliability rules from
 - **`InitWithTimeoutAsync`** — wait for the model, but never forever
 - **serialized inference** — a semaphore held inside the worker task, so a
   timed-out call can't overlap the next one
+- **fresh engine per answer** — after every answer (or timeout) the engine is
+  reloaded in the background under the same lock, so each question starts
+  against a clean token budget and a wedged inference heals itself
 - **friendly fallbacks** — busy / timeout / error messages instead of hangs
 
 Usage from app code:
