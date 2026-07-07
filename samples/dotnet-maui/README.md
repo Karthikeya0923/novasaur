@@ -14,20 +14,34 @@ reference. It layers the reliability rules from
   against a clean token budget and a wedged inference heals itself
 - **friendly fallbacks** — busy / timeout / error messages instead of hangs
 
-Usage from app code:
+Usage from app code. The golden rule learned in production: **treat the model
+as an optional enhancement and never make the user wait on it.** Answer from
+your own on-device data first; only reach for the model when it is *already*
+loaded, and stream the reply so words appear as they are generated:
 
 ```csharp
-// warm up in the background at startup
-_ = NovaSaurService.InitAsync();
+// warm the model up in the background, only if it is actually present
+if (ModelIsInstalled) _ = NovaSaurService.InitAsync();
 
 // answering a question
-if (!NovaSaurService.IsReady)
+if (TryAnswerFromMyOwnData(question, out string instant))
 {
-    ShowInstantFallback();          // answer from your own data instead
+    Show(instant);                  // the common case: instant, grounded, offline
     return;
 }
-string answer = await NovaSaurService.AskAsync(prompt, CancellationToken.None);
+
+if (!NovaSaurService.IsReady)
+{
+    Show(OfflineFallback(question)); // still instant — never block on the model
+    return;
+}
+
+// the model is loaded: stream the open-ended answer for extra richness
+await NovaSaurService.AskStreamAsync(prompt, token => Append(token), CancellationToken.None);
 ```
+
+The blocking `AskAsync` is still available for one-shot use, but streaming plus
+an always-ready offline path is what keeps the chat feeling instant on a phone.
 
 To bind the AAR in your own app: build `novasaur.aar` from `android/`, add an
 Android binding library project referencing it, and reference that from your
