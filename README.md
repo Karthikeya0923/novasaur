@@ -41,7 +41,7 @@ Three design rules keep the engine reliable on real phones:
 
 ### 1. Get a model
 
-NovaSaur runs Gemma in LiteRT-LM's `.litertlm` format (about 3 GB). Accept Google's license on Hugging Face, download the model, and deliver it to the device — see below for how DinoSpace does that at Play Store scale.
+NovaSaur runs Gemma in LiteRT-LM's `.litertlm` format (about 2.5 GB). Accept Google's license on Hugging Face, download the model, and deliver it to the device — see below for how DinoSpace does that at Play Store scale.
 
 ### 2. Build the library
 
@@ -64,12 +64,12 @@ That's the whole public surface. A production-grade C# wrapper (single-flight in
 - [PROMPTING.md](docs/PROMPTING.md) — how to prompt a small quantized model (and when not to call it at all)
 - [MODEL_DELIVERY.md](docs/MODEL_DELIVERY.md) — shipping a 3 GB model through Google Play: asset-pack chunking + resumable fallback
 
-## Shipping a 3 GB model
+## Shipping a 2.5 GB model
 
 Large-model delivery is solved in production the way [DinoSpace](https://github.com/Karthikeya0923/dinospace) does it:
 
 - **Google Play install:** the model ships inside the app as **Play Asset Delivery** packs (split into 1 GB chunks to stay under Play's per-pack cap) and is assembled on-device on first run.
-- **Fallback:** installs that didn't come with the packs download the model directly, with pause/resume that survives app restarts.
+- **In-app download:** installs that didn't come with the packs offer the model as a user-started download, with pause/resume that survives app restarts and a remove option to free the space back up.
 
 ## Requirements
 
