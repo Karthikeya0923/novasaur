@@ -1,12 +1,13 @@
-# NovaSaur
+<h1 align="center">NovaSaur</h1>
 
-**An offline LLM inference engine for .NET MAUI Android apps.** Run Google's Gemma directly on-device — no internet, no servers, no API keys, no per-request cost.
+<p align="center">
+  An offline LLM inference engine for .NET MAUI Android apps.<br>
+  Run Google's Gemma directly on-device — no internet, no servers, no API keys, no per-request cost.
+</p>
 
 NovaSaur is a lightweight bridge that lets any .NET MAUI Android app run a large language model entirely on the user's device. It wraps Google's **LiteRT-LM** runtime and exposes it to C# through a clean JNI bridge, so an app can load a model and ask questions with just a few calls.
 
-## Why on-device?
-
-Most apps that use AI send every request to a server. NovaSaur takes the opposite approach — the model lives on the phone and runs locally:
+## Why on-device
 
 - **Fully offline** — works on a plane, in a basement, anywhere with no signal
 - **Private by design** — nothing the user types ever leaves the device
@@ -15,7 +16,7 @@ Most apps that use AI send every request to a server. NovaSaur takes the opposit
 
 ## Architecture
 
-NovaSaur sits between your managed C# code and the native inference runtime. The MAUI app talks to a single entry point; everything below it is handled internally.
+NovaSaur sits between managed C# code and the native inference runtime. The app talks to a single entry point; everything below it is handled internally.
 
 ```
 Your .NET MAUI app  (C#)
@@ -33,23 +34,17 @@ Gemma4Engine.kt         — wraps LiteRT-LM; loads the model and runs inference
 
 Three design rules keep the engine reliable on real phones:
 
-- **Every question is independent.** A fresh conversation is created per question and closed right after — and after each answer the engine itself reloads via `reset()`. LiteRT-LM draws all conversations from one shared token budget, so a long-lived engine simply stops answering after a handful of questions; the per-answer reload means question 50 behaves exactly like question 1.
+- **Every question is independent.** A fresh conversation is created per question and closed right after — and after each answer the engine reloads itself via `reset()`. LiteRT-LM draws all conversations from one shared token budget, so a long-lived engine simply stops answering after a handful of questions; the per-answer reload means question 50 behaves exactly like question 1.
 - **The prompt is sacred.** No system prompt or rewriting happens on the native side — whatever the C# layer builds reaches the model untouched.
 - **Self-healing.** A reset also follows any timeout or failure, so a wedged inference recovers on its own instead of requiring an app restart.
 
 ## Integration
 
-### 1. Get a model
+**1. Get a model.** NovaSaur runs Gemma in LiteRT-LM's `.litertlm` format (about 2.5 GB). Accept Google's license on Hugging Face, download the model, and deliver it to the device — see below for how that works at Play Store scale.
 
-NovaSaur runs Gemma in LiteRT-LM's `.litertlm` format (about 2.5 GB). Accept Google's license on Hugging Face, download the model, and deliver it to the device — see below for how DinoSpace does that at Play Store scale.
+**2. Build the library.** Open `android/` in Android Studio, sync Gradle, and build the AAR.
 
-### 2. Build the library
-
-Open `android/` in Android Studio, sync Gradle, and build the AAR.
-
-### 3. Wire it into your app
-
-Bind the AAR in your MAUI project, then:
+**3. Wire it into your app.** Bind the AAR in your MAUI project, then:
 
 - `init(context)` once, off the UI thread, to load the model
 - `isReady()` to check before asking
@@ -58,18 +53,20 @@ Bind the AAR in your MAUI project, then:
 
 That's the whole public surface. A production-grade C# wrapper (single-flight init, timeouts, serialized inference) ships in [`samples/dotnet-maui`](samples/dotnet-maui).
 
+## Shipping a 2.5 GB model
+
+Large-model delivery is solved in production the way DinoSpace does it:
+
+- **Google Play install** — the model ships as **Play Asset Delivery** packs (split into 1 GB chunks to stay under Play's per-pack cap) and is assembled on-device on first run.
+- **In-app download** — installs without the packs offer the model as a user-started download, with pause/resume that survives app restarts and a remove option to free the space back up.
+
+The full pattern: [docs/MODEL_DELIVERY.md](docs/MODEL_DELIVERY.md).
+
 ## Docs
 
 - [ARCHITECTURE.md](docs/ARCHITECTURE.md) — the full stack, lifecycle, threading, and the reliability rules learned from real-device failures
 - [PROMPTING.md](docs/PROMPTING.md) — how to prompt a small quantized model (and when not to call it at all)
-- [MODEL_DELIVERY.md](docs/MODEL_DELIVERY.md) — shipping a 3 GB model through Google Play: asset-pack chunking + resumable fallback
-
-## Shipping a 2.5 GB model
-
-Large-model delivery is solved in production the way [DinoSpace](https://github.com/Karthikeya0923/dinospace) does it:
-
-- **Google Play install:** the model ships inside the app as **Play Asset Delivery** packs (split into 1 GB chunks to stay under Play's per-pack cap) and is assembled on-device on first run.
-- **In-app download:** installs that didn't come with the packs offer the model as a user-started download, with pause/resume that survives app restarts and a remove option to free the space back up.
+- [MODEL_DELIVERY.md](docs/MODEL_DELIVERY.md) — shipping a 3 GB model through Google Play
 
 ## Requirements
 
@@ -77,12 +74,16 @@ Large-model delivery is solved in production the way [DinoSpace](https://github.
 - 6 GB+ RAM recommended
 - CPU inference — response time scales with device performance
 
-## Built with NovaSaur
+## In production
 
-[**DinoSpace**](https://github.com/Karthikeya0923/dinospace) — an offline dinosaur and space encyclopedia — runs NovaSaur in production as its "Ask NovaSaur" feature, answering free-form questions entirely without an internet connection — with an instant local answer layer in front, so the model only handles the genuinely open-ended ones. That answer layer is verified by DinoSpace's in-repo harness, which runs **over a billion generated questions** (1,347,640,320 on the current build) through the exact production pipeline — every reply graded for being alive, on-subject, and substantial — and the current build passes with **zero failures**. That instant layer is verified by an in-repo harness that runs **over a billion generated questions** — every one of its 100 encyclopedia entries and their aliases across dozens of question shapes, every named star, deep-sky object and constellation the sky scanner can point at, every pairwise battle, and heavy typo, casing and punctuation gauntlets — through the exact production pipeline, graded for on-topic, substantial, good-quality answers.
+NovaSaur powers **Ask Nova** in [**DinoSpace**](https://github.com/Karthikeya0923/dinospace), a kids' dinosaur & space encyclopedia on Google Play. An instant local answer layer sits in front of the model and handles anything askable by name; the model takes the genuinely open-ended questions. That answer layer is gated by DinoSpace's in-repo harness, which replays **1.3 billion generated questions** through the exact production pipeline — every entry and alias across dozens of question shapes, typo and casing gauntlets included — and must pass clean before a build ships.
 
-Building something with NovaSaur? Open an issue and let me know.
+<p align="center">
+  <img src="docs/dinospace-nova.png" width="360" alt="Ask Nova in DinoSpace, running on NovaSaur">
+</p>
+
+Building something with NovaSaur? Open an issue.
 
 ## License
 
-GPL-3.0. See [LICENSE](LICENSE).
+GPL-3.0 — see [LICENSE](LICENSE).
